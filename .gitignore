@@ -72,3 +72,53 @@ upload_remaining.bat
 
 # Keep desktop.ini out
 desktop.ini
+
+# Additional sensitive patterns
+# Environment files
+.env.local
+.env.*
+.envrc
+.secrets
+
+# Private keys and certs
+*.pem
+*.key
+*.crt
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+ssh/ 
+ssh_config
+
+# OpenSSH private keys or similar
+*PRIVATE_KEY*
+*-id_rsa
+*-private-key
+
+# Cloud credentials
+.aws/credentials
+.aws/config
+credentials.yml
+azure_credentials.json
+gcloud-service-account.json
+
+# IDE and OS sensitive
+.idea/workspace.xml
+.vscode/settings.json
+
+# Build artifacts that may contain secrets
+dist/
+build/
+
+# Binary blobs and extracted wallets (tooling in repo)
+**/BitXtractorMain/**
+**/wallet_extractor_blueprint.py
+
+# Specific extracted private key file seen in repo
+R3AL3R_AI
+
+# OpenAI & API keys in files (patterns)
+*OPENAI_API_KEY*
+*openai_api_key*
+
