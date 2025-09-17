@@ -1,0 +1,100 @@
+import React, { useState, useRef, useEffect } from 'react';
+import type { ChatMessage } from '../types';
+import { interactWithDroid } from '../services/apiService';
+import { parseUserIntent } from '../services/geminiService';
+import { SendIcon } from './icons/SendIcon';
+
+interface DroidTerminalProps {
+  token: string;
+}
+
+const DroidTerminal: React.FC<DroidTerminalProps> = ({ token }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { sender: 'system', text: 'RillerDroid Assistant online. Ready for personalization input.', timestamp: new Date().toISOString() }
+  ]);
+  const [userInput, setUserInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(scrollToBottom, [messages]);
+
+  const addMessage = (sender: 'user' | 'droid' | 'system', text: string) => {
+    setMessages(prev => [...prev, { sender, text, timestamp: new Date().toISOString() }]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userInput.trim() || isLoading) return;
+
+    const userMessage = userInput;
+    addMessage('user', userMessage);
+    setUserInput('');
+    setIsLoading(true);
+
+    try {
+      addMessage('system', 'Parsing intent with Gemini Core...');
+      const parsedIntent = await parseUserIntent(userMessage);
+      
+      addMessage('system', 'Intent parsed. Transmitting to RillerDroid...');
+      const droidResponse = await interactWithDroid(token, parsedIntent.structuredData);
+
+      if (droidResponse.error) {
+         addMessage('system', `// ERROR: ${droidResponse.error}`);
+      } else {
+         addMessage('droid', parsedIntent.conversationalResponse);
+         addMessage('system', `Adaptability updated: ${droidResponse.adaptability}`);
+      }
+
+    } catch (error: any) {
+      addMessage('system', `// ERROR: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex-grow overflow-y-auto p-4 bg-[#010] border border-[#050] rounded-t-md">
+        {messages.map((msg, index) => (
+          <div key={index} className="mb-3">
+            <div className="flex items-center text-xs opacity-70">
+              <span className={`font-bold ${
+                msg.sender === 'user' ? 'text-cyan-400' : 
+                msg.sender === 'droid' ? 'text-yellow-400' : 'text-red-500'
+              }`}>
+                {msg.sender.toUpperCase()}
+              </span>
+              <span className="ml-2 text-gray-500">{new Date(msg.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      <form onSubmit={handleSubmit} className="flex p-2 border-t border-[#050] bg-black rounded-b-md">
+        <input
+          type="text"
+          value={userInput}
+          onChange={(e) => setUserInput(e.target.value)}
+          placeholder={isLoading ? "Awaiting response..." : "Tell me about your preferences..."}
+          disabled={isLoading}
+          className="flex-grow p-2 bg-[#010] border border-[#050] rounded-l-md focus:outline-none focus:border-[#0f0] focus:shadow-[0_0_5px_rgba(0,255,0,0.5)] transition-all duration-300"
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !userInput.trim()}
+          className="px-4 py-2 bg-[#050] rounded-r-md hover:bg-[#080] disabled:bg-[#030] disabled:cursor-not-allowed transition-colors"
+          aria-label="Send Message"
+        >
+          <SendIcon />
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default DroidTerminal;
