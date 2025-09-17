@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Matrix AI</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: black; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="matrix-canvas"></canvas>
+  <script src="{{ url_for('static', filename='js/matrix.js') }}"></script>
+  <script>
+    // Trigger the face formation after 3s
+    setTimeout(() => {
+      matrixAnimation.startFaceFormation();
+    }, 3000);
+  </script>
+</body>
+</html>

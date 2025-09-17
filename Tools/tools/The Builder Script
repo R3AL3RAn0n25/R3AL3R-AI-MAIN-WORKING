@@ -1,0 +1,432 @@
+#!/bin/bash
+
+echo "🚀 CREATING R3ÆLƎR AI - FINAL PROPRIETARY MODULAR FULL-STACK APPLICATION"
+echo "================================================================================"
+
+# --- Directory Setup ---
+# This creates the final, organized structure for your entire project.
+PROJECT_DIR="/home/ubuntu/R3ÆLƎR-AI"
+echo "📁 Setting up project directory: $PROJECT_DIR"
+mkdir -p "$PROJECT_DIR/application/templates"
+mkdir -p "$PROJECT_DIR/application/static/css"
+mkdir -p "$PROJECT_DIR/application/static/js"
+mkdir -p "$PROJECT_DIR/AI_Core_Worker"
+mkdir -p "$PROJECT_DIR/blueprints"
+mkdir -p "$PROJECT_DIR/tools"
+cd "$PROJECT_DIR"
+
+# --- Main Application Files (`application/`) ---
+echo "🐍 Creating Main Application Files..."
+
+cat > application/app.py << 'EOF'
+#!/usr/bin/env python3
+import os, sys, logging, datetime, sqlite3, jwt, hashlib
+from functools import wraps
+from flask import Flask, jsonify, request, render_template
+from werkzeug.security import generate_password_hash, check_password_hash
+from config import AppConfig
+import security
+from core_ai import RealerAI
+from droid import RillerDroid
+
+app = Flask(__name__, template_folder='templates', static_folder='static')
+app.config.from_object(AppConfig)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def get_db():
+    db = sqlite3.connect(AppConfig.DATABASE_PATH); db.row_factory = sqlite3.Row; return db
+def init_database():
+    db_dir = os.path.dirname(AppConfig.DATABASE_PATH)
+    if not os.path.exists(db_dir): os.makedirs(db_dir)
+    with app.app_context():
+        db = get_db()
+        # Correctly reference the schema file location
+        schema_path = os.path.join(os.path.dirname(__file__), 'schema.sql')
+        with open(schema_path, 'r') as f: db.cursor().executescript(f.read())
+        admin_hash = generate_password_hash(AppConfig.ADMIN_PASSWORD)
+        db.execute('INSERT OR REPLACE INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)',
+                   (1, 'admin', admin_hash, 'admin'))
+        db.commit()
+    logging.info("Database initialized.")
+
+security.app_config = AppConfig
+security.db_connector = get_db
+ai_core = RealerAI(config=AppConfig, db_connector=get_db)
+active_droids = {}
+
+@app.route('/')
+def index_route(): return render_template('index.html')
+
+@app.route('/api/auth/login', methods=['POST'])
+@security.watermark
+def login():
+    data = request.json
+    username, password = data.get('username'), data.get('password')
+    with get_db() as conn: user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+    if user and check_password_hash(user['password_hash'], password):
+        token = jwt.encode({'user_id': user['username'], 'exp': datetime.datetime.utcnow() + datetime.timedelta(seconds=AppConfig.JWT_EXPIRY_SECONDS)}, AppConfig.SECRET_KEY, algorithm='HS256')
+        return jsonify({'token': token})
+    else: security.treadmill_trap(request.remote_addr, 'failed_login'); return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/api/droid/interact', methods=['POST'])
+@security.require_auth
+def interact_with_droid():
+    user_id = request.user_id
+    if user_id not in active_droids:
+        try: active_droids[user_id] = RillerDroid(user_id, AppConfig.MONGO_URI)
+        except Exception as e: return jsonify({"error": f"Could not initialize AI assistant: {e}"}), 500
+    droid = active_droids[user_id]
+    try: droid.adapt_to_user(request.json); return jsonify({"status": "success", "adaptability": droid.adaptability})
+    except RuntimeError as e: return jsonify({"error": str(e)}), 503
+
+if __name__ == '__main__':
+    init_database()
+    app.run(host='0.0.0.0', port=5000, debug=False)
+EOF
+
+cat > application/config.py << 'EOF'
+import os
+from datetime import timedelta
+class AppConfig:
+    try:
+        SECRET_KEY = os.environ['SECRET_KEY']
+        ADMIN_PASSWORD = os.environ['ADMIN_PASSWORD']
+    except KeyError as e:
+        raise SystemExit(f"❌ FATAL ERROR: Missing required environment variable: {e}")
+    DATABASE_PATH = os.environ.get('DATABASE_PATH', os.path.join(os.path.dirname(__file__), 'data/realer_ai.db'))
+    MONGO_URI = os.environ.get('MONGO_URI', "mongodb://localhost:27017/")
+    ADAPTATION_COOLDOWN = 60
+    MAX_INSIGHTS_BEFORE_REVIEW = 100
+    JWT_EXPIRY_SECONDS = int(timedelta(hours=24).total_seconds())
+    SOUL_KEY_VENDOR_ID = 0x1234
+    SOUL_KEY_PRODUCT_ID = 0x5678
+EOF
+
+cat > application/core_ai.py << 'EOF'
+import time, datetime, logging
+try:
+    import usb.core
+except ImportError:
+    logging.warning("PyUSB not found. Soul key will be simulated.")
+    usb = None
+from security import HeartStorage
+class RealerAI:
+    def __init__(self, config, db_connector):
+        self.config, self.insights, self.adaptability_level = config, [], 1
+        self.heart, self.last_adaptation = HeartStorage(db_connector), 0
+    def generate_insight(self, data, user_id=None):
+        insight = f"Processed data: {str(data)[:100]}... at {datetime.datetime.now()}"
+        if user_id: self.heart.store(user_id, insight)
+        self.insights.append(insight)
+        if self.is_critical(insight): logging.warning(f"Critical insight: {insight}")
+        return insight
+    def is_critical(self, insight):
+        return any(k in insight.lower() for k in ['world-changing', 'evolution']) or len(self.insights) > self.config.MAX_INSIGHTS_BEFORE_REVIEW
+    def adapt(self, new_data):
+        current_time = time.time()
+        if current_time - self.last_adaptation < self.config.ADAPTATION_COOLDOWN: return False
+        if self.adaptability_level < 5:
+            self.adaptability_level += 1; self.last_adaptation = current_time
+            logging.info(f"Adapted. Level: {self.adaptability_level}"); return True
+        else: return self.require_soul_key_approval()
+    def require_soul_key_approval(self):
+        if not self.soul_key_valid(): raise PermissionError("Soul key required.")
+        self.adaptability_level += 1; self.last_adaptation = time.time()
+        logging.critical(f"Soul key approved adaptation. Level: {self.adaptability_level}"); return True
+    def soul_key_valid(self):
+        if usb is None: logging.warning("SIMULATING soul key validation"); return True
+        try: return usb.core.find(idVendor=self.config.SOUL_KEY_VENDOR_ID, idProduct=self.config.SOUL_KEY_PRODUCT_ID) is not None
+        except Exception as e: logging.error(f"Soul key validation failed: {e}"); return False
+EOF
+
+cat > application/droid.py << 'EOF'
+import logging
+from pymongo import MongoClient
+from security import KillSwitch
+class RillerDroid:
+    def __init__(self, user_id, mongo_uri):
+        self.user_id, self.adaptability, self.kill_switch = user_id, 0, KillSwitch()
+        self.user_profile = { 'likes': [], 'dislikes': [], 'habits': [], 'financial_goals': [] }
+        try:
+            self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            self.db = self.client["r3al3r_db"]
+            self.profiles = self.db["user_profiles"]
+            logging.info(f"RillerDroid for {self.user_id} connected to MongoDB.")
+        except Exception as e: logging.error(f"RillerDroid MongoDB connection failed: {e}"); raise
+    def adapt_to_user(self, user_data):
+        if self.kill_switch.is_active(): raise RuntimeError("Kill switch active.")
+        if self.adaptability < 5: self.adaptability += 1
+        if isinstance(user_data, dict) and "intent" in user_data:
+            if user_data["intent"] == "personalize":
+                entities = user_data.get("entities", [])
+                self.user_profile['likes'].extend([e["value"] for e in entities if e.get("entity") == "like"])
+                self.user_profile['dislikes'].extend([e["value"] for e in entities if e.get("entity") == "dislike"])
+        self.profiles.update_one({"user_id": self.user_id}, {"$set": self.user_profile}, upsert=True)
+        logging.info(f"RillerDroid adapted for user {self.user_id}.")
+EOF
+
+cat > application/security.py << 'EOF'
+import time, datetime, requests, logging, jwt, hashlib
+from functools import wraps
+from flask import request, jsonify
+app_config = None
+db_connector = None
+blocklist = set()
+class ThreatIntelligence:
+    def get_threat_score(self, ip, user_agent, payload, headers):
+        return {"score": 75, "details": "Placeholder threat analysis."}
+class EmailAlerts:
+    def send_threat_alert(self, ip, metadata, geolocation):
+        logging.warning(f"SIMULATED EMAIL ALERT for high-threat incident from IP {ip}")
+threat_intelligence = ThreatIntelligence()
+email_alerts = EmailAlerts()
+class KillSwitch:
+    def __init__(self): self.active = False
+    def activate(self): self.active = True; logging.critical("KILL SWITCH ACTIVATED")
+    def is_active(self): return self.active
+class Vault:
+    def __init__(self): self.keys = {}
+    def store_key(self, user_id, key): self.keys[user_id] = key
+    def retrieve_key(self, user_id): return self.keys.get(user_id)
+class HeartStorage:
+    def __init__(self, db_conn): self.get_db = db_conn
+    def store(self, user_id, insight):
+        with self.get_db() as conn:
+            conn.execute("INSERT INTO heart_storage (user_id, insight, created_at) VALUES (?, ?, ?)",
+                         (user_id, insight, datetime.datetime.now().isoformat()))
+def treadmill_trap(ip, reason='unknown'):
+    try:
+        time.sleep(2)
+        metadata = {'user_agent': request.headers.get('User-Agent', 'Unknown'),'method': request.method,'path': request.path,'timestamp': datetime.datetime.now().isoformat(),'reason': reason,'headers': dict(request.headers)}
+        threat_analysis = threat_intelligence.get_threat_score(ip, metadata['user_agent'], request.get_data(as_text=True), request.headers)
+        try:
+            geo_response = requests.get(f"http://ip-api.com/json/{ip}", timeout=5)
+            geolocation = geo_response.json() if geo_response.status_code == 200 else {'status': 'error'}
+        except: geolocation = {'status': 'error', 'message': 'lookup_failed'}
+        with db_connector() as conn:
+            conn.execute("INSERT INTO treadmill_logs (ip, metadata, geolocation, threat_score, created_at) VALUES (?, ?, ?, ?, ?)",
+                         (ip, str(metadata), str(geolocation), threat_analysis['score'], datetime.datetime.now().isoformat()))
+            conn.execute("INSERT INTO auth_attempts (ip, success, created_at) VALUES (?, ?, ?)",
+                         (ip, False, datetime.datetime.now().isoformat()))
+        logging.warning(f"Intruder trapped: IP {ip}, Reason: {reason}, Threat Score: {threat_analysis['score']}")
+        if threat_analysis['score'] >= 50: email_alerts.send_threat_alert(ip, metadata, geolocation)
+        if threat_analysis['score'] >= 70: blocklist.add(ip); logging.critical(f"IP {ip} added to blocklist.")
+    except Exception as e: logging.error(f"Treadmill trap failed: {e}")
+def watermark(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        hash_obj = hashlib.sha256(); hash_obj.update(b"Bradley Wayne Hughes H-U-G-H-S");
+        logging.info(f"Watermark applied: {hash_obj.hexdigest()}"); return func(*args, **kwargs)
+    return wrapper
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        client_ip = request.remote_addr
+        if client_ip in blocklist: return jsonify({'error': 'IP blocked'}), 403
+        token = request.headers.get('Authorization')
+        if not token or not token.startswith('Bearer '):
+            treadmill_trap(client_ip, 'missing_token'); return jsonify({'error': 'Token required'}), 401
+        try:
+            token = token.replace('Bearer ', '')
+            data = jwt.decode(token, app_config.SECRET_KEY, algorithms=['HS256'])
+            request.user_id = data['user_id']
+            with db_connector() as conn: conn.execute("INSERT INTO auth_attempts (ip, success, created_at) VALUES (?, ?, ?)", (client_ip, True, datetime.datetime.now().isoformat()))
+            return f(*args, **kwargs)
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+            treadmill_trap(client_ip, 'invalid_token'); return jsonify({'error': 'Invalid or expired token'}), 401
+    return decorated
+EOF
+
+cat > application/schema.sql << 'EOF'
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS treadmill_logs;
+DROP TABLE IF EXISTS auth_attempts;
+DROP TABLE IF EXISTS heart_storage;
+CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'user');
+CREATE TABLE treadmill_logs (id INTEGER PRIMARY KEY, ip TEXT NOT NULL, metadata TEXT, geolocation TEXT, threat_score INTEGER, created_at TEXT NOT NULL);
+CREATE TABLE auth_attempts (id INTEGER PRIMARY KEY, ip TEXT NOT NULL, success BOOLEAN NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE heart_storage (id INTEGER PRIMARY KEY, user_id TEXT NOT NULL, insight TEXT NOT NULL, created_at TEXT NOT NULL);
+EOF
+
+cat > application/wsgi.py << 'EOF'
+from app import app
+
+if __name__ == "__main__":
+    app.run()
+EOF
+
+cat > application/templates/index.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>R3ÆLƎR AI</title><link rel="stylesheet" href="/static/css/style.css"></head>
+<body>
+    <canvas id="matrix-canvas"></canvas>
+    <div class="container" id="app-container">
+        <h1>R3ÆLƎR AI</h1>
+        <div id="login-view">
+            <h2>System Access</h2>
+            <div class="form-section">
+                <input type="text" id="username" placeholder="Username"><input type="password" id="password" placeholder="Password"><button onclick="app.login()">[ Login ]</button>
+            </div>
+        </div>
+        <div id="main-view" class="hidden">
+            <h2>AI Terminal</h2>
+            <div class="form-section">
+                <h3>System Actions</h3><button onclick="app.logout()" style="background: #500; color: #f00;">[ Logout ]</button>
+            </div>
+            <h2>Output Console</h2><pre id="output">Awaiting command...</pre>
+        </div>
+    </div>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+EOF
+
+cat > application/static/css/style.css << 'EOF'
+:root { --matrix-green: #0f0; --dark-bg: #010; --darker-bg: #000; --border-color: #050; --button-bg: #050; --button-hover-bg: #080; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--darker-bg); color: var(--matrix-green); font-family: 'Courier New', Courier, monospace; overflow: hidden; }
+#matrix-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+.container { max-width: 800px; margin: 2rem auto; padding: 2rem; background: rgba(0, 20, 0, 0.9); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: 0 0 15px rgba(0, 255, 0, 0.2); position: relative; z-index: 10; opacity: 1; transition: opacity 0.5s ease-in-out; }
+h1, h2 { text-align: center; text-shadow: 0 0 8px var(--matrix-green); margin-bottom: 1.5rem; }
+h1 { font-size: 2.5em; }
+.form-section { display: flex; flex-direction: column; gap: 15px; margin-bottom: 2rem; padding: 1.5rem; border: 1px dashed var(--border-color); border-radius: 5px; }
+input, button { width: 100%; padding: 12px; background: var(--dark-bg); border: 1px solid var(--border-color); color: var(--matrix-green); border-radius: 4px; font-family: inherit; font-size: 1em; transition: all 0.3s ease; }
+input:focus { outline: none; border-color: var(--matrix-green); box-shadow: 0 0 5px rgba(0, 255, 0, 0.5); }
+button { cursor: pointer; background: var(--button-bg); font-weight: bold; }
+button:hover { background: var(--button-hover-bg); color: #fff; }
+pre#output { background: var(--darker-bg); padding: 1rem; border-radius: 4px; border: 1px solid var(--border-color); white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; min-height: 100px; max-height: 400px; overflow-y: auto; }
+.hidden { display: none !important; }
+.fading-out { opacity: 0 !important; }
+EOF
+
+cat > application/static/js/app.js << 'EOF'
+document.addEventListener('DOMContentLoaded',()=>{const app={API_URL:"/api",token:null,elements:{},init(){this.elements={container:document.getElementById("app-container"),loginView:document.getElementById("login-view"),mainView:document.getElementById("main-view"),usernameInput:document.getElementById("username"),passwordInput:document.getElementById("password"),output:document.getElementById("output")};this.token=localStorage.getItem("authToken");if(this.token){matrixAnimation.setFaceFormed(!0);this.showMainView()}else this.showLoginView()},showLoginView(){this.elements.container.classList.remove("fading-out");this.elements.loginView.classList.remove("hidden");this.elements.mainView.classList.add("hidden")},showMainView(){this.elements.container.classList.remove("fading-out");this.elements.loginView.classList.add("hidden");this.elements.mainView.classList.remove("hidden");this.setOutput("AI Assistant online. Awaiting command...")},setOutput(content,isError=!1){this.elements.output.style.color=isError?"#f00":"var(--matrix-green)";const output="string"==typeof content?content:JSON.stringify(content,null,2);this.elements.output.textContent=isError?`// ERROR: ${output}`:output},async apiRequest(endpoint,options={}){try{const headers={"Content-Type":"application/json",...options.headers};this.token&&(headers.Authorization=`Bearer ${this.token}`);const response=await fetch(`${this.API_URL}${endpoint}`,{...options,headers}),data=await response.json();if(!response.ok)throw new Error(data.message||"API request failed");return data}catch(error){this.setOutput(error.message,!0);return null}},async login(){const username=this.elements.usernameInput.value,password=this.elements.passwordInput.value,data=await this.apiRequest("/auth/login",{method:"POST",body:JSON.stringify({username,password})});data&&data.token&&(this.token=data.token,localStorage.setItem("authToken",this.token),this.elements.container.classList.add("fading-out"),matrixAnimation.startFaceFormation())},logout(){this.token=null;localStorage.removeItem("authToken");matrixAnimation.reset();this.showLoginView()}};const matrixAnimation={canvas:document.getElementById("matrix-canvas"),ctx:null,chars:"01",fontSize:14,drops:[],facePattern:["      1111      ","    11    11    ","   1  00  00 1   ","   1 0  0 0  1   ","    11 0 0 11    ","      1111      "],faceCurrentX:0,faceCurrentY:0,faceProgress:0,isFormingFace:!1,isFaceFormed:!1,mouse:{x:window.innerWidth/2,y:window.innerHeight/2},init(){this.ctx=this.canvas.getContext("2d");window.addEventListener("resize",()=>this.onResize());window.addEventListener("mousemove",e=>this.onMouseMove(e));this.onResize();this.animate()},onResize(){this.canvas.width=window.innerWidth;this.canvas.height=window.innerHeight;this.columns=Math.floor(this.canvas.width/this.fontSize);this.drops=Array(this.columns).fill(1).map(()=>Math.random()*this.canvas.height);this.faceCurrentX=this.canvas.width/2;this.faceCurrentY=this.canvas.height/2},onMouseMove(e){this.mouse.x=e.clientX;this.mouse.y=e.clientY},startFaceFormation(){this.isFormingFace=!0;this.faceProgress=0},setFaceFormed(state){this.isFaceFormed=state},reset(){this.isFaceFormed=!1;this.isFormingFace=!1;this.faceProgress=0},animate(){this.ctx.fillStyle="rgba(0,0,0,.05)";this.ctx.fillRect(0,0,this.canvas.width,this.canvas.height);this.ctx.fillStyle="var(--matrix-green)";this.ctx.font=`${this.fontSize}px monospace`;if(this.isFaceFormed){const e=this.mouse.x-this.faceCurrentX,t=this.mouse.y-this.faceCurrentY;this.faceCurrentX+=.05*e;this.faceCurrentY+=.05*t;this.drawFace()}else this.drawRain();requestAnimationFrame(()=>this.animate())},drawRain(){for(let e=0;e<this.drops.length;e++)this.ctx.fillText(this.chars[Math.floor(2*Math.random())],e*this.fontSize,this.drops[e]),this.drops[e]>this.canvas.height&&Math.random()>.975&&(this.drops[e]=0),this.drops[e]+=this.fontSize;this.isFormingFace&&this.formFace()},formFace(){const e=this.facePattern[0].length,t=e*this.facePattern.length,i=Math.min(10,t-this.faceProgress);for(let s=0;s<i;s++){const i=Math.floor(this.faceProgress/e),o=this.faceProgress%e,n=this.facePattern[i]?.[o];if(n&&" "!==n){const t=this.canvas.width/2-e*this.fontSize/2,s=this.canvas.height/2-this.facePattern.length*this.fontSize/2;this.ctx.fillText(n,t+o*this.fontSize,s+i*this.fontSize)}this.faceProgress++}if(this.faceProgress>=t){this.isFaceFormed=!0;this.isFormingFace=!1;setTimeout(()=>app.showMainView(),500)}},drawFace(){const e=this.facePattern[0].length,t=this.faceCurrentX-e*this.fontSize/2,i=this.faceCurrentY-this.facePattern.length*this.fontSize/2;this.facePattern.forEach((e,s)=>{for(let o=0;o<e.length;o++)" "!==e[o]&&this.ctx.fillText(e[o],t+o*this.fontSize,i+s*this.fontSize)})}};window.matrixAnimation=matrixAnimation;window.app=app;window.matrixAnimation.init();window.app.init()});
+EOF
+
+# --- AI Core Worker Files (`AI_Core_Worker/`) ---
+echo "🤖 Creating AI Core Worker Files..."
+
+cat > AI_Core_Worker/ai_core_worker.py << 'EOF'
+from celery import Celery
+import time
+import random
+import os
+from prompts import (
+    SYSTEM_PROMPT_CODE_GENERATOR,
+    SYSTEM_PROMPT_FORENSICS_ANALYST,
+    SYSTEM_PROMPT_WALLET_RECOVERY_EXPERT
+)
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
+celery_app = Celery(
+    'tasks',
+    broker=f'redis://{REDIS_HOST}:{REDIS_PORT}/0',
+    backend=f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+)
+celery_app.conf.update(task_track_started=True)
+@celery_app.task
+def generate_insight(input_data: str, task_type: str) -> dict:
+    time.sleep(5)
+    if task_type == "analysis": insight = f"Analysis of '{input_data}': Data shows a significant upward trend."
+    elif task_type == "prediction": insight = f"Prediction based on '{input_data}': Model forecasts a 15% increase in value."
+    else: insight = f"Ideation for '{input_data}': A novel application would be real-time supply chain optimization."
+    return {"input": input_data, "task": task_type, "insight": insight}
+@celery_app.task
+def process_code(language: str, task: str, code_to_fix: str = None) -> dict:
+    time.sleep(8)
+    if code_to_fix: analysis = "Code has a potential off-by-one error and lacks exception handling."; code = f"# Corrected and hardened {language} code...\n"
+    else: analysis = "Task requires a script to asynchronously fetch data from multiple endpoints."; code = f"# High-quality {language} code...\n"
+    return {"analysis": analysis, "code": code}
+EOF
+
+cat > AI_Core_Worker/prompts.py << 'EOF'
+SYSTEM_PROMPT_CODE_GENERATOR = """
+You are an elite-level software architect...
+"""
+SYSTEM_PROMPT_FORENSICS_ANALYST = """
+You are a world-class digital forensics investigator...
+"""
+SYSTEM_PROMPT_WALLET_RECOVERY_EXPERT = """
+You are R3ÆLƎR, operating in a secure, sandboxed environment...
+"""
+EOF
+
+# --- Blueprints (`blueprints/`) ---
+echo "📜 Creating Blueprint Files..."
+cat > blueprints/wallet_extractor_blueprint.py << 'EOF'
+import os, sys, hashlib
+from bsddb3 import db
+import base58
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+class WalletExtractorBlueprint:
+    def __init__(self, wallet_path, passphrase):
+        self.wallet_path, self.passphrase = wallet_path, passphrase
+        print(f"--- Initializing Blueprint for: {self.wallet_path} ---")
+    def analyze_structure(self):
+        print("\n[Step 1] Analyzing wallet structure...")
+        if not os.path.exists(self.wallet_path): print("  -> ERROR: Wallet file not found."); return False
+        db_env = db.DBEnv(); db_env.open('.', db.DB_CREATE | db.DB_INIT_MPOOL)
+        try:
+            d = db.DB(db_env); d.open(self.wallet_path, "main", db.DB_BTREE, db.DB_RDONLY); cursor = d.cursor()
+            key_types = {}
+            for key, value in cursor:
+                try:
+                    null_index = key.find(b'\x00'); key_prefix = key[:null_index] if null_index != -1 else key
+                    if key_prefix in [b'key', b'ckey', b'mkey', b'pool', b'name']:
+                        key_str = key_prefix.decode(); key_types[key_str] = key_types.get(key_str, 0) + 1
+                except: key_types['other'] = key_types.get('other', 0) + 1
+            print("  -> SUCCESS: Found key types:", key_types)
+            cursor.close(); d.close(); return True
+        except db.DBError as e: print(f"  -> ERROR: BDB error: {e}."); return False
+        finally: db_env.close()
+    def run_extraction_simulation(self):
+        if not self.analyze_structure(): return
+        print("\n--- Blueprint Execution Complete ---")
+if __name__ == '__main__':
+    dummy_wallet = "mock_wallet.dat"
+    try:
+        with open(dummy_wallet, "w") as f: f.write("mock")
+        extractor = WalletExtractorBlueprint(dummy_wallet, "pass")
+        extractor.run_extraction_simulation()
+    finally:
+        if os.path.exists(dummy_wallet): os.remove(dummy_wallet)
+EOF
+
+cat > blueprints/data_models_blueprint.py << 'EOF'
+from typing import List, Optional, TypedDict
+class User(TypedDict):
+    user_id: str; plan: str; payment_status: str; features: List[str]
+class Token(TypedDict):
+    access_token: str; token_type: str
+class InsightRequest(TypedDict):
+    input_data: str; task_type: str
+class TaskResponse(TypedDict):
+    task_id: str; status: str
+EOF
+
+cat > blueprints/watermark_generator_blueprint.py << 'EOF'
+import hashlib, json
+from datetime import datetime, timezone
+WATERMARK_AUTHOR = "Bradley Wayne Hughes H-U-G-H-S"
+WATERMARK_OWNER = "R3ÆLƎR TƎCH™ Industries"
+def generate_watermark(data_payload: dict):
+    data_str = json.dumps(data_payload, sort_keys=True)
+    timestamp = datetime.now(timezone.utc).isoformat()
+    content = f"{WATERMARK_AUTHOR}|{WATERMARK_OWNER}|{timestamp}|{data_str}"
+    signature = hashlib.sha256(content.encode('utf-8')).hexdigest()
+    return {"signature": signature, "author": WATERMARK_AUTHOR, "timestamp_utc": timestamp}
+if __name__ == '__main__':
+    sample_data = {"test": "data"}
+    watermark = generate_watermark(sample_data)
+    print("Generated Watermark:", watermark)
+EOF
+
+# --- Final step: Move this script to the tools directory ---
+mv "$0" "tools/create_awesome_backend.sh"
+echo "✅ Master Builder script moved to tools/ directory."
+echo ""
+
+echo "🎉 R3ÆLƎR AI Project Structure Created Successfully! 🎉"
+

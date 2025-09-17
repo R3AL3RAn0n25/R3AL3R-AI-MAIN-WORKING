@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>R3ÆLƎR AI</title><link rel="stylesheet" href="/static/css/style.css?v=2"></head>
+<body>
+<canvas id="matrix-canvas"></canvas>
+<div class="container" id="app-container">
+<h1>R3ÆLƎR AI</h1>
+<div id="login-view">
+<h2>System Access</h2>
+<div class="form-section">
+<input type="text" id="username" placeholder="Username"><input type="password" id="password" placeholder="Password"><button onclick="app.login()">[ Login ]</button>
+<button onclick="app.showRegisterView()">[ Register ]</button>
+</div>
+</div>
+<div id="register-view" class="hidden">
+<h2>User Registration</h2>
+<div class="form-section">
+<input type="text" id="full-name" placeholder="Full Name">
+<input type="date" id="date-of-birth" placeholder="Date of Birth">
+<input type="email" id="email" placeholder="Email">
+<input type="text" id="reg-username" placeholder="Preferred Username">
+<input type="password" id="reg-password" placeholder="Password">
+<button onclick="app.register()">[ Register ]</button>
+<button onclick="app.showLoginView()">[ Back to Login ]</button>
+</div>
+</div>
+<div id="main-view" class="hidden">
+<h2>AI Terminal</h2>
+<div class="form-section">
+<h3>System Actions</h3>
+<button onclick="app.logout()" style="background: #500; color: #f00;">[ Logout ]</button>
+<button id="voice-toggle" onclick="app.voiceManager.toggleVoice()">🔇 Voice OFF</button>
+<button id="mic-button" onclick="app.voiceManager.startListening()">🎤 Voice</button>
+</div>
+<div id="chat-messages" style="height: 300px; overflow-y: auto; border: 1px solid #0f0; padding: 10px; margin: 10px 0; background: rgba(0,0,0,0.8);"></div>
+<div class="form-section">
+<input type="text" id="message-input" placeholder="Type your message..." style="width: 70%; margin-right: 10px;">
+<button onclick="app.sendMessage()">[ Send ]</button>
+</div>
+<pre id="output" style="display: none;">Awaiting command...</pre>
+</div>
+</div>
+<script src="/static/js/app.js?v=1001"></script>
+</body>
+</html>
+

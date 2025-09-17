@@ -1,0 +1,1 @@
+This file lists all the Python libraries required to run the blueprint.Install them using the command: pip install -r requirements.txtbsddb3pycryptodomebase58cryptography

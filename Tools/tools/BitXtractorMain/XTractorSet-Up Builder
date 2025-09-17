@@ -1,0 +1,215 @@
+#!/bin/bash
+
+# ==============================================================================
+# R3ÆLƎR AI - BitXTractor Setup & Execution Script
+# This script automates the entire process of setting up the environment,
+# installing dependencies, creating the application files, and running the
+# educational BitXTractor blueprint.
+# ==============================================================================
+
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+echo "🚀 Starting BitXTractorBlueprint.py Setup..."
+
+# --- Step 1: System Dependency Installation ---
+echo "\n[Step 1/5] Installing system dependencies (python3.8, libdb-dev)..."
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get update
+sudo apt-get install -y \
+    python3.8 \
+    python3.8-dev \
+    python3-pip \
+    libdb-dev
+echo "✅ System dependencies installed."
+
+# --- Step 2: Python Dependency Installation ---
+echo "\n[Step 2/5] Installing Python libraries (bsddb3, cryptography, etc.)..."
+pip3 install \
+    bsddb3==6.2.9 \
+    cryptography==41.0.7 \
+    base58==2.1.1 \
+    pytest==7.4.0
+echo "✅ Python libraries installed."
+
+# --- Step 3: Application Directory and File Creation ---
+echo "[Step 3/5] Creating application structure and source files..."
+# Set working directory
+sudo WORKDIR="/appBitXtractor"
+sudo mkdir -p $BitXtract/tests
+sudo cd $BitXtract
+
+# Create the requirements.txt file
+sudo cat > requirements.txt << 'EOF'
+# This file lists all the Python libraries required to run the blueprint.
+# On Debian/Ubuntu, you may also need: sudo apt-get install libdb-dev python3-dev
+bsddb3==6.2.9
+cryptography==41.0.7
+base58==2.1.1
+pytest==7.4.0
+EOF
+
+# Create the main BitXTractor.py file
+sudo cat > BitXTractor_.py << 'EOF'
+"""
+R3AL3R AI Framework - BitXTractor Engine (Elite Educational Blueprint)
+Version: 3.0 (Professional Edition)
+"""
+import os
+import sys
+import hashlib
+from bsddb3 import db
+import base58
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+
+class BitXTract:
+    def __init__(self, wallet_path, passphrase):
+        self.wallet_path = wallet_path
+        self.passphrase = passphrase
+        print("--- Initializing BitXTractor Blueprint ---")
+        print(f"Target file (copy): {self.wallet_path}")
+    def analyze_structure(self):
+        print("\n[Step 1] Analyzing wallet structure...")
+        if not os.path.exists(self.wallet_path):
+            print("  -> ERROR: Wallet file not found.")
+            return False
+        db_env = db.DBEnv()
+        db_env.open('.', db.DB_CREATE | db.DB_INIT_MPOOL)
+        try:
+            d = db.DB(db_env)
+            d.open(self.wallet_path, "main", db.DB_BTREE, db.DB_RDONLY)
+            cursor = d.cursor()
+            key_types = {}
+            for key, value in cursor:
+                try:
+                    null_index = key.find(b'\x00')
+                    key_prefix = key[:null_index] if null_index != -1 else key
+                    if key_prefix in [b'key', b'ckey', b'mkey', b'pool', b'name', b'version', b'defaultkey']:
+                        key_str = key_prefix.decode()
+                        key_types[key_str] = key_types.get(key_str, 0) + 1
+                except Exception:
+                    key_types['other_binary_key'] = key_types.get('other_binary_key', 0) + 1
+            print("  -> SUCCESS: Found the following key types:")
+            for k, v in key_types.items():
+                print(f"    - Found {v} entries of type '{k}'")
+            cursor.close()
+            d.close()
+            return True
+        except db.DBError as e:
+            print(f"  -> ERROR: Berkeley DB error: {e}. File might be corrupted.")
+            return False
+        finally:
+            db_env.close()
+    def _parse_for_keys(self):
+        print("\n[Step 2] Parsing for cryptographic keys (simulation)...")
+        master_key_hex = "0102030405060708090a0b0c0d0e0f10"
+        encrypted_key_hex = "1112131415161718191a1b1c1d1e1f20"
+        print("  -> Found 'mkey' (Encrypted Master Key).")
+        print("  -> Found 'ckey' (Encrypted Private Key).")
+        return {"master_key": bytes.fromhex(master_key_hex), "encrypted_private_key": bytes.fromhex(encrypted_key_hex)}
+    def _master_key_decryption(self, keys):
+        print("\n[Step 3] Attempting decryption of the Master Key (simulation)...")
+        key = hashlib.sha256(self.passphrase.encode()).digest()
+        iv = hashlib.md5(self.passphrase.encode()).digest()
+        print("  -> Deriving AES-256 key and IV from passphrase (simplified simulation of a KDF)...")
+        try:
+            cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+            decryptor = cipher.decryptor()
+            decrypted_master_key = decryptor.update(keys['master_key']) + decryptor.finalize()
+            print("  -> SUCCESS: Master Key decrypted.")
+            return decrypted_master_key
+        except Exception as e:
+            print(f"  -> ERROR: Decryption failed. Details: {e}")
+            return None
+    def wif_conversion(self):
+        print("[Step 4] Converting raw private key to WIF...")
+        private_key_bytes = os.urandom(32)
+        extended_key = b'\x80' + private_key_bytes
+        checksum = hashlib.sha256(hashlib.sha256(extended_key).digest()).digest()[:4]
+        final_key = extended_key + checksum
+        wif_key = base58.b58encode(final_key)
+        print(f"  -> WIF Key: {wif_key.decode()}")
+        print("  -> SUCCESS: WIF conversion complete].")
+    def run_extraction(self):
+        if not self.analyze_structure(): return
+        keys = self._parse_for_keys()
+        if not keys: return
+        decrypted_key = self.master_key_decryption(keys)
+        if not decrypted_key: return
+        self._wif_conversion()
+        print("\n---Execution Complete ---")
+
+if __name__ == '__main__':
+    print("--- R3AL3R AI BitXTract (v3.0) ---")
+    print("--- wallet_filename = "wallet.dat"
+    try:
+        print(f"[SETUP] Creating a file named '{wallet_filename}'...")
+        with open(wallet_filename, "w") as f: f.write("self")
+        extractor = BitXTract.py(dummy_wallet_filename, "mysecretpassphrase")
+        extractor.run_extraction()
+    finally:
+        if os.path.exists(wallet_filename):
+            print(f" [CLEANUP] Removing file '{wallet_filename}'.")
+            os.remove(wallet_filename)
+EOF
+
+# Create a placeholder test file for completeness
+sudo cat > tests/BitXTract.py << 'EOF'
+import pytest
+fromBitXTractor import BBitXTractor
+
+def test_blueprint_initialization():
+    """
+    A simple test to ensure the BitXTracBlueprint class can be
+    instantiated without errors.
+    """
+    try:
+        # We don't need a real file for this test, just a path
+        extractor = BitXTract.pyBlueprint("path/wallet.dat", "pass")
+        assert extractor.wallet_path == "path/wallet.dat"
+        assert extractor.passphrase == "pass"
+    except Exception as e:
+        pytest.fail(f"BitXTractor initialization failed: {e}")
+EOF
+echo "✅ Application files created in $r3aler-ai."
+
+# --- Step 4: Set Environment Variable for Watermark ---
+echo "\n[Step 4/5] Setting watermark environment variable..."
+# Check if a command-line argument was provided
+if [ -z "$1" ]; then
+    echo "  -> WARNING: No user hash provided. Using a default value."
+    USER_HASH="default_user_hash_placeholder"
+else
+    USER_HASH="$1"
+fi
+export R3AL3R_USER_HASH=$USER_HASH
+echo "✅ Watermark hash set to: $R3AL3R_USER_HASH"
+
+
+# --- Step 5: Run the Application ---
+esudo echo "[Step 5/5] Executing the BitXTractor.py app..."
+echo "----------------------------------------------------"
+sudo python3 BitXTractor.py
+echo "----------------------------------------------------"
+echo "✅ Blueprint execution finished."
+```
+
+### **How to Use This Executable File**
+
+1.  **Save the Code:** Save the code above into a file named `run_extractor.sh` on your Ubuntu server.
+
+2.  **Make it Executable:** Open your terminal and run the following command to give the script permission to execute:
+    ```bash
+    chmod +x run_extractor.sh
+    ```
+
+3.  **Run the Script:** You can now run the script.
+    * **Without a custom watermark:**
+        ```bash
+        sudo ./run_extractor.sh
+        ```
+    * **With your custom watermark hash:**
+        ```bash
+        sudo ./run_extractor.sh "your_unique_hash_string_here"
+        

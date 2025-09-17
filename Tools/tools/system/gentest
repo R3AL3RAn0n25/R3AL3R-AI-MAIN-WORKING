@@ -1,0 +1,5 @@
+bitcoind -regtest -daemon
+bitcoin-cli -regtest createwallet test_wallet
+bitcoin-cli -regtest encryptwallet mysecretpassphrase
+bitcoin-cli -regtest stop
+cp ~/.bitcoin/regtest/wallets/test_wallet/wallet.dat /home/ubuntu/BitXTract/test_wallet.dat

@@ -1,0 +1,3 @@
+chmod +x test_BitXTractor.py
+chmod +x tests/test_BitXTractor.py
+chmod +x run_BitXTractor.sh

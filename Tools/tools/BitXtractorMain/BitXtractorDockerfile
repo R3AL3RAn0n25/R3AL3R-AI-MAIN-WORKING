@@ -1,0 +1,24 @@
+FROM ubuntu:20.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    python3.8 \
+    python3.8-dev \
+    python3-pip \
+    libdb-dev \
+    python3-tk \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip3 install \
+    bsddb3==6.2.9 \
+    cryptography==41.0.7 \
+    base58==2.1.1 \
+    pytest==7.4.0
+WORKDIR /app
+COPY BitXTractor.py .
+COPY tests/test_BitXTractor.py tests/
+COPY dictionaries/wordlist.txt dictionaries/
+COPY run_BitXTractor.sh .
+COPY requirements.txt .
+RUN chmod +x BitXTractor.py run_BitXTractor.sh tests/test_BitXTractor.py
+ARG USER_HASH
+ENV R3AL3R_USER_HASH=$USER_HASH
+CMD ["./run_BitXTractor.sh"]

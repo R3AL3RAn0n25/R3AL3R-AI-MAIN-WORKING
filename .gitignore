@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+env/
+venv/
+ENV/
+.env
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtualenv
+env/
+venv/
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+.cache
+
+# Pytest
+.pytest_cache/
+
+# Editor directories and files
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Misc
+*.bak
+*.swp
+
+# Secrets (do not commit)
+secrets.env
+credentials.json
+
+# Uploads/scripts artifacts
+upload_files.ps1
+upload_remaining.bat
+
+# Keep desktop.ini out
+desktop.ini

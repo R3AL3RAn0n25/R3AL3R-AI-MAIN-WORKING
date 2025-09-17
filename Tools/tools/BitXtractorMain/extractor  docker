@@ -1,0 +1,35 @@
+# Use Ubuntu 20.04 for bsddb3 compatibility
+FROM ubuntu:20.04
+
+# Set non-interactive frontend to avoid tzdata prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.8 \
+    python3.8-dev \
+    python3-pip \
+    libdb-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip3 install \
+    bsddb3==6.2.9 \
+    cryptography==41.0.7 \
+    base58==2.1.1 \
+    pytest==7.4.0
+
+# Set working directory
+WORKDIR /app
+
+# Copy application code
+COPY blueprints/wallet_extractor_blueprint.py .
+COPY tests/test_wallet_extractor.py tests/
+COPY requirements.txt .
+
+# Set environment variables for watermark
+ARG USER_HASH
+ENV R3AL3R_USER_HASH=$USER_HASH
+
+# Default command to run the application
+CMD ["python3", "wallet_extractor_blueprint.py"]
