@@ -27,7 +27,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from config import AppConfig
 import security
 from core_ai import RealerAI
-from droid import RillerDroid
+from droid import R3al3rDroid
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.config.from_object(AppConfig)
@@ -73,7 +73,7 @@ def login():
 def interact_with_droid():
     user_id = request.user_id
     if user_id not in active_droids:
-        try: active_droids[user_id] = RillerDroid(user_id, AppConfig.MONGO_URI)
+    try: active_droids[user_id] = R3al3rDroid(user_id, AppConfig.MONGO_URI)
         except Exception as e: return jsonify({"error": f"Could not initialize AI assistant: {e}"}), 500
     droid = active_droids[user_id]
     try: droid.adapt_to_user(request.json); return jsonify({"status": "success", "adaptability": droid.adaptability})
@@ -143,7 +143,7 @@ cat > application/droid.py << 'EOF'
 import logging
 from pymongo import MongoClient
 from security import KillSwitch
-class RillerDroid:
+class R3al3rDroid:
     def __init__(self, user_id, mongo_uri):
         self.user_id, self.adaptability, self.kill_switch = user_id, 0, KillSwitch()
         self.user_profile = { 'likes': [], 'dislikes': [], 'habits': [], 'financial_goals': [] }
@@ -151,8 +151,8 @@ class RillerDroid:
             self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
             self.db = self.client["r3al3r_db"]
             self.profiles = self.db["user_profiles"]
-            logging.info(f"RillerDroid for {self.user_id} connected to MongoDB.")
-        except Exception as e: logging.error(f"RillerDroid MongoDB connection failed: {e}"); raise
+            logging.info(f"R3al3rDroid for {self.user_id} connected to MongoDB.")
+        except Exception as e: logging.error(f"R3al3rDroid MongoDB connection failed: {e}"); raise
     def adapt_to_user(self, user_data):
         if self.kill_switch.is_active(): raise RuntimeError("Kill switch active.")
         if self.adaptability < 5: self.adaptability += 1
@@ -162,7 +162,9 @@ class RillerDroid:
                 self.user_profile['likes'].extend([e["value"] for e in entities if e.get("entity") == "like"])
                 self.user_profile['dislikes'].extend([e["value"] for e in entities if e.get("entity") == "dislike"])
         self.profiles.update_one({"user_id": self.user_id}, {"$set": self.user_profile}, upsert=True)
-        logging.info(f"RillerDroid adapted for user {self.user_id}.")
+        logging.info(f"R3al3rDroid adapted for user {self.user_id}.")
+# Backwards compatibility alias
+RillerDroid = R3al3rDroid
 EOF
 
 cat > application/security.py << 'EOF'
